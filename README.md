@@ -24,5 +24,5 @@ Plug 'bryall/contextprint.nvim'
 
 - [x] Lua
 - [x] Python
-- [ ] Typescript
+- [x] Typescript
 - [ ] C/C++

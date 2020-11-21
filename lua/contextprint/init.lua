@@ -66,8 +66,11 @@ function M.add_statement()
         context = "print(\"" .. context .. "\")"
     elseif  buf_filetype == "python" then
         context = "print(\"" .. context .. "\")"
+    elseif buf_filetype:find("typescript") then
+        context = "console.log(\"" .. context .. "\")"
     else
         print("Unsupported filetype: " .. buf_filetype)
+        return
     end
 
     local row, col = unpack(vim.api.nvim_win_get_cursor(0))
