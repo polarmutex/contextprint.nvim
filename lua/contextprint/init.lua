@@ -5,7 +5,67 @@ local parsers = require('nvim-treesitter.parsers')
 
 local M = {}
 
-function M.add_statement()
+_config = _config or {}
+
+local function first_non_null(...)
+  local n = select('#', ...)
+  for i = 1, n do
+    local value = select(i, ...)
+
+    if value ~= nil then
+      return value
+    end
+  end
+end
+
+M.config = _config
+
+M.setup = function(opts)
+    opts = opts or {}
+
+    local function get(name, default_val)
+        return first_non_null(opts[name], M.config[name], default_val)
+    end
+
+    local function set(name, default_val)
+        M.config[name] = get(name, default_val)
+    end
+
+    set("separator_char", ":")
+    set("include_class", true)
+    set("include_function", true)
+    set("include_method", true)
+    set("include_if", false)
+    set("include_for", false)
+
+end
+
+
+local look_for_name = function(node)
+
+    local cur_node_text = nil
+
+    -- Check to see if we have named node "name"
+    if next(node:field("name")) ~= nil then
+        cur_node_text = ts_utils.get_node_text(node:field("name")[1])[1]
+        -- Loop over child nodes looking for "name" in node type
+    else
+        for child in node:iter_children() do
+            if child:type():find("name") then
+                cur_node_text = ts_utils.get_node_text(child)[1]
+                break
+            end
+        end
+    end
+
+    if cur_node_text ~= nil then
+        return cur_node_text
+    else
+        return nil
+    end
+end
+
+M.add_statement = function()
     -- Check to see if tree-sitter is setup
     if not parsers.has_parser() then
         return nil
@@ -19,39 +79,46 @@ function M.add_statement()
 
     local context = nil
 
-    -- try local queries
-
-    local starting_node = current_node
-
     while current_node do
 
-        local is_class = current_node:type():find("class") ~= nil
-        local is_function = current_node:type():find("function") ~= nil
-        local is_method = current_node:type():find("method") ~= nil
+        local cur_node_type = current_node:type()
+        local context_text = nil
 
-        if is_class or is_function or is_method then
-
-            local cur_node_text = nil
-
-            -- Check to see if we have named node "name"
-            if next(current_node:field("name")) ~= nil then
-                cur_node_text = ts_utils.get_node_text(current_node:field("name")[1])[1]
-            -- Loop over child nodes looking for "name" in node type
-            else
-                for child in current_node:iter_children() do
-                    if child:type():find("name") then
-                        cur_node_text = ts_utils.get_node_text(child)[1]
-                        break
-                    end
-                end
-            end
-
-            if context == nil then
-                context = cur_node_text
-            else
-                context = cur_node_text .. ':' .. context
+        -- Check to see if we should include this node
+        if _config.include_class then
+            if cur_node_type:find("class") ~= nil then
+                context_text = look_for_name(current_node)
             end
         end
+        if _config.include_function then
+            if cur_node_type:find("function") ~= nil then
+                context_text = look_for_name(current_node)
+            end
+        end
+        if _config.include_method then
+            if cur_node_type:find("method") ~= nil then
+                context_text = look_for_name(current_node)
+            end
+        end
+        if _config.include_if then
+            if cur_node_type:find("if") ~= nil then
+                context_text = "if"
+            end
+        end
+        if _config.include_for then
+            if cur_node_type:find("for") ~= nil then
+                context_text = "for"
+            end
+        end
+
+        if context_text ~= nil then
+            if context == nil then
+                context = context_text
+            else
+                context = context_text .. _config.separator_char .. context
+            end
+        end
+
         -- goto next parent
         current_node = current_node:parent()
     end

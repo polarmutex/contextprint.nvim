@@ -17,6 +17,7 @@ a print statement in the current language that prints that context
 
 Use your favorite plugin manager to install
 ```
+Plug 'nvim-treesitter/nvim-treesitter'
 Plug 'bryall/contextprint.nvim'
 ```
 
@@ -26,3 +27,22 @@ Plug 'bryall/contextprint.nvim'
 - [x] Python
 - [x] Typescript
 - [ ] C/C++
+
+# Options
+
+```
+    require('contextprint').setup({
+        separator_char = ":",
+        include_class = true,
+        include_function = true,
+        include_method = true,
+        include_if = false,
+        include_for = false
+    })
+```
+
+# to add context print statement
+
+```
+    require('contextprint').add_statement()
+```
