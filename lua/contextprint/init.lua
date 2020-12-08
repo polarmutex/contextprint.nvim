@@ -112,7 +112,8 @@ M.create_statement = function()
     return lang.log(path), row, col
 end
 
-M.add_statement = function()
+M.add_statement = function(below)
+    below = below or false
 
     local ft = vim.api.nvim_buf_get_option(bufnr, 'ft')
 
@@ -128,11 +129,19 @@ M.add_statement = function()
         print("Unable to find anything with your query.  Are you sure it is correct?")
     end
 
-    vim.api.nvim_buf_set_lines(0, row, row, false, {print_statement})
-    vim.api.nvim_feedkeys('j', 'n', false)
-    vim.api.nvim_feedkeys('=', 'n', false)
-    vim.api.nvim_feedkeys('=', 'n', false)
-    vim.api.nvim_feedkeys('$', 'n', false)
+    if below then
+        vim.api.nvim_buf_set_lines(0, row, row, false, {print_statement})
+        vim.api.nvim_feedkeys('j', 'n', false)
+        vim.api.nvim_feedkeys('=', 'n', false)
+        vim.api.nvim_feedkeys('=', 'n', false)
+        vim.api.nvim_feedkeys('$', 'n', false)
+    else
+        vim.api.nvim_buf_set_lines(0, row - 1, row - 1, false, {print_statement})
+        vim.api.nvim_feedkeys('k', 'n', false)
+        vim.api.nvim_feedkeys('=', 'n', false)
+        vim.api.nvim_feedkeys('=', 'n', false)
+        vim.api.nvim_feedkeys('$', 'n', false)
+    end
 
 end
 
