@@ -4,7 +4,7 @@ local parsers = require("nvim-treesitter.parsers")
 
 local M = {}
 
-_name_defaults = {
+_contextprint_name_defaults = {
     ["function"] = "(anonymous)",
     ["if"] = "if",
     ["for"] = "for",
@@ -15,7 +15,9 @@ _name_defaults = {
 }
 
 -- TODO: Runtime type filter
-_config = _config or {
+--
+-- TODO: If vs elseif seems to be odd
+_contextprint_config = _contextprint_config or {
     separator = "#",
     lua = {
         separator = "#",
@@ -29,13 +31,26 @@ _config = _config or {
 (if_statement) @if.declaration
         ]],
         log = function(contents) return "print(\"" .. contents .. "\")" end,
-        type_defaults = vim.tbl_extend("force", {}, _name_defaults),
+        type_defaults = vim.tbl_extend("force", {}, _contextprint_name_defaults),
     },
+
     typescript = {
+        -- I am missing const a = () => { ... };  In a sense, I should be able
+        -- to get the name, but I don't know how to do reverse lookup via query
+        -- if there is a name provided
         query = [[
+(class_declaration (name) @class.name) @class.declaration
+(method_definition (name) @method.name) @method.declaration
+(arrow_function) @function.declaration
+(function_declaration (name) @function.name) @function.declaration
+(if_statement) @if.declaration
+(for_statement) @for.declaration
+(for_in_statement) @for_in.declaration
+(do_statement) @do.declaration
+(while_statement) @while.declaration
         ]],
         log = function(contents) return "console.error(\"" .. contents .. "\")" end,
-        type_defaults = vim.tbl_extend("force", {}, _name_defaults),
+        type_defaults = vim.tbl_extend("force", {}, _contextprint_name_defaults),
     },
 }
 
@@ -50,7 +65,7 @@ local function first_non_null(...)
     end
 end
 
-M.config = _config
+M.config = _contextprint_config
 
 function merge(t1, t2)
     for key, value in pairs(t2) do --actualcode
@@ -70,7 +85,7 @@ end
     -- query = string
 -- }
 M.setup = function(opts)
-    merge(_config, opts or {})
+    merge(_contextprint_config, opts or {})
 end
 
 M.create_statement = function()
@@ -78,7 +93,7 @@ M.create_statement = function()
     local ft = vim.api.nvim_buf_get_option(bufnr, 'ft')
 
     -- Check to see if tree-sitter is setup
-    local lang = _config[ft]
+    local lang = _contextprint_config[ft]
     if not lang then
         print("contextprint doesn't support this filetype", ft)
         return nil
@@ -87,8 +102,7 @@ M.create_statement = function()
     local row, col = unpack(vim.api.nvim_win_get_cursor(0))
 
     -- TODO: Uses 0 for current buffer.  Should we fix this?
-    print("defaults", _config[ft].type_defaults)
-    local nodes = Nodes.get_nodes(lang.query, ft, _config[ft].type_defaults or {})
+    local nodes = Nodes.get_nodes(lang.query, ft, _contextprint_config[ft].type_defaults or {})
 
     if nodes == nil then
         print("Unable to find any nodes.  Is your query correct?")
@@ -99,7 +113,7 @@ M.create_statement = function()
 
     local path = ""
     local first = true
-    local sep = (_config[ft].separator or _config.separator)
+    local sep = (_contextprint_config[ft].separator or _contextprint_config.separator)
     for idx = 1, #nodes do
         if first then
             path = nodes[idx].name
