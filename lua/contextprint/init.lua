@@ -51,7 +51,7 @@ function clean_cache()
 (do_statement) @do.declaration
 (while_statement) @while.declaration
                 ]],
-                log = function(contents) return "console.error(\"" .. contents .. "\")" end,
+                log = function(contents) return "console.error(\"" .. contents .. "\");" end,
                 type_defaults = vim.tbl_extend("force", {}, name_defaults),
             },
         }
