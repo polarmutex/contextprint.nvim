@@ -17,7 +17,7 @@ Plug 'bryall/contextprint.nvim'
 # Supported Languages / Planned
 
 - [x] Lua
-- [ ] Python
+- [x] Python
 - [x] Typescript
 - [ ] C/C++
 
@@ -27,9 +27,9 @@ Call the below statment to change the defaults
 
 ```
     require('contextprint').setup({
-        separator_char = "#",
+        separator_char = "#",  // Global
         <filetype> = {
-            separator = "#",
+            separator = "#", // filetype specific
             query = [[ <language specific queries> ]],
             log = function(contents) to return print statement to insert
             type_defaults = vim.tbl_extend to change name defaults
@@ -69,3 +69,12 @@ contextprint provides the following context for the supplied languages
 - [x] do_statement
 - [x] while_statement
 
+## Python
+
+- [x] function_definition
+- [x] class_definition
+- [x] if_statement
+- [x] elif_statement
+- [x] else_statement
+- [x] for_statement
+- [x] while_statement

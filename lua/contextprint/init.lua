@@ -8,6 +8,8 @@ function get_name_defaults()
     return {
         ["function"] = "(anonymous)",
         ["if"] = "if",
+        ["elif"] = "elif",
+        ["else"] = "else",
         ["for"] = "for",
         ["for_in"] = "for_in",
         ["repeat"] = "repeat",
@@ -22,7 +24,6 @@ function clean_cache()
     return {
         separator = "#",
         lua = {
-            separator = "#",
             query = [[
 (function (function_name) @function.name) @function.declaration
 (function_definition) @function.declaration
@@ -52,6 +53,20 @@ function clean_cache()
 (while_statement) @while.declaration
                 ]],
                 log = function(contents) return "console.error(\"" .. contents .. "\");" end,
+                type_defaults = vim.tbl_extend("force", {}, name_defaults),
+            },
+
+            python = {
+                query = [[
+(function_definition (identifier) @function.name) @function.declaration
+(class_definition (identifier) @class.name) @class.declaration
+(if_statement) @if.declaration
+(elif_clause) @elif.declaration
+(else_clause) @else.declaration
+(for_statement) @for.declaration
+(while_statement) @while.declaration
+                ]],
+                log = function(contents) return "print(\"" .. contents .. "\");" end,
                 type_defaults = vim.tbl_extend("force", {}, name_defaults),
             },
         }
