@@ -1,4 +1,3 @@
-_contextprint_name_defaults = nil
 _contextprint_config = nil
 require("plenary.reload").reload_module("contextprint")
 local context_print = require("contextprint")

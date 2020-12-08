@@ -4,24 +4,26 @@ local parsers = require("nvim-treesitter.parsers")
 
 local M = {}
 
-_contextprint_name_defaults = {
-    ["function"] = "(anonymous)",
-    ["if"] = "if",
-    ["for"] = "for",
-    ["for_in"] = "for_in",
-    ["repeat"] = "repeat",
-    ["while"] = "while",
-    ["do"] = "do",
-}
+function get_name_defaults()
+    return {
+        ["function"] = "(anonymous)",
+        ["if"] = "if",
+        ["for"] = "for",
+        ["for_in"] = "for_in",
+        ["repeat"] = "repeat",
+        ["while"] = "while",
+        ["do"] = "do",
+    }
+end
 
--- TODO: Runtime type filter
---
 -- TODO: If vs elseif seems to be odd
-_contextprint_config = _contextprint_config or {
-    separator = "#",
-    lua = {
+function clean_cache()
+    local name_defaults = get_name_defaults()
+    return {
         separator = "#",
-        query = [[
+        lua = {
+            separator = "#",
+            query = [[
 (function (function_name) @function.name) @function.declaration
 (function_definition) @function.declaration
 (for_statement) @for.declaration
@@ -29,30 +31,38 @@ _contextprint_config = _contextprint_config or {
 (repeat_statement) @repeat.declaration
 (while_statement) @while.declaration
 (if_statement) @if.declaration
-        ]],
-        log = function(contents) return "print(\"" .. contents .. "\")" end,
-        type_defaults = vim.tbl_extend("force", {}, _contextprint_name_defaults),
-    },
+                ]],
+                log = function(contents) return "print(\"" .. contents .. "\")" end,
+                type_defaults = vim.tbl_extend("force", {}, name_defaults),
+            },
 
-    typescript = {
-        -- I am missing const a = () => { ... };  In a sense, I should be able
-        -- to get the name, but I don't know how to do reverse lookup via query
-        -- if there is a name provided
-        query = [[
-(class_declaration (name) @class.name) @class.declaration
-(method_definition (name) @method.name) @method.declaration
+            typescript = {
+                -- I am missing const a = () => { ... };  In a sense, I should be able
+                -- to get the name, but I don't know how to do reverse lookup via query
+                -- if there is a name provided
+                query = [[
+(function_declaration (identifier) @function.name) @function.declaration
+(class_declaration (type_identifier) @class.name) @class.declaration
+(method_definition (property_identifier) @method.name) @method.declaration
 (arrow_function) @function.declaration
-(function_declaration (name) @function.name) @function.declaration
 (if_statement) @if.declaration
 (for_statement) @for.declaration
 (for_in_statement) @for_in.declaration
 (do_statement) @do.declaration
 (while_statement) @while.declaration
-        ]],
-        log = function(contents) return "console.error(\"" .. contents .. "\")" end,
-        type_defaults = vim.tbl_extend("force", {}, _contextprint_name_defaults),
-    },
-}
+                ]],
+                log = function(contents) return "console.error(\"" .. contents .. "\")" end,
+                type_defaults = vim.tbl_extend("force", {}, name_defaults),
+            },
+        }
+end
+
+M.reset_cache = function()
+    _contextprint_config = clean_cache()
+end
+
+-- TODO: Runtime type filter
+_contextprint_config = _contextprint_config or clean_cache()
 
 local function first_non_null(...)
     local n = select('#', ...)
@@ -64,8 +74,6 @@ local function first_non_null(...)
         end
     end
 end
-
-M.config = _contextprint_config
 
 function merge(t1, t2)
     for key, value in pairs(t2) do --actualcode
@@ -141,7 +149,10 @@ M.add_statement = function(below)
 
     if print_statement == nil then
         print("Unable to find anything with your query.  Are you sure it is correct?")
+        return
     end
+
+    print("print_statement", print_statement, row, col)
 
     if below then
         vim.api.nvim_buf_set_lines(0, row, row, false, {print_statement})
