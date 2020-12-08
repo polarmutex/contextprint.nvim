@@ -1,151 +1,138 @@
-
-local treesitter = vim.treesitter
-local ts_utils = require('nvim-treesitter.ts_utils')
-local parsers = require('nvim-treesitter.parsers')
+local Utils = require("contextprint.utils")
+local Nodes = require("contextprint.nodes")
+local parsers = require("nvim-treesitter.parsers")
 
 local M = {}
 
-_config = _config or {}
+_name_defaults = {
+    ["function"] = "(anonymous)",
+    ["if"] = "if",
+    ["for"] = "for",
+    ["for_in"] = "for_in",
+    ["repeat"] = "repeat",
+    ["while"] = "while",
+    ["do"] = "do",
+}
+
+-- TODO: Runtime type filter
+_config = _config or {
+    separator = "#",
+    lua = {
+        separator = "#",
+        query = [[
+(function (function_name) @function.name) @function.declaration
+(function_definition) @function.declaration
+(for_statement) @for.declaration
+(for_in_statement) @for_in.declaration
+(repeat_statement) @repeat.declaration
+(while_statement) @while.declaration
+(if_statement) @if.declaration
+        ]],
+        log = function(contents) return "print(\"" .. contents .. "\")" end,
+        type_defaults = vim.tbl_extend("force", {}, _name_defaults),
+    },
+    typescript = {
+        query = [[
+        ]],
+        log = function(contents) return "console.error(\"" .. contents .. "\")" end,
+        type_defaults = vim.tbl_extend("force", {}, _name_defaults),
+    },
+}
 
 local function first_non_null(...)
-  local n = select('#', ...)
-  for i = 1, n do
-    local value = select(i, ...)
+    local n = select('#', ...)
+    for i = 1, n do
+        local value = select(i, ...)
 
-    if value ~= nil then
-      return value
+        if value ~= nil then
+            return value
+        end
     end
-  end
 end
 
 M.config = _config
 
-M.setup = function(opts)
-    opts = opts or {}
-
-    local function get(name, default_val)
-        return first_non_null(opts[name], M.config[name], default_val)
-    end
-
-    local function set(name, default_val)
-        M.config[name] = get(name, default_val)
-    end
-
-    set("separator_char", ":")
-    set("include_class", true)
-    set("include_function", true)
-    set("include_method", true)
-    set("include_if", false)
-    set("include_for", false)
-
-end
-
-
-local look_for_name = function(node)
-
-    local cur_node_text = nil
-
-    -- Check to see if we have named node "name"
-    if next(node:field("name")) ~= nil then
-        cur_node_text = ts_utils.get_node_text(node:field("name")[1])[1]
-        -- Loop over child nodes looking for "name" in node type
-    else
-        for child in node:iter_children() do
-            if child:type():find("name") then
-                cur_node_text = ts_utils.get_node_text(child)[1]
-                break
-            end
-        end
-    end
-
-    if cur_node_text ~= nil then
-        return cur_node_text
-    else
-        return nil
-    end
-end
-
-M.add_statement = function()
-    -- Check to see if tree-sitter is setup
-    if not parsers.has_parser() then
-        return nil
-    end
-
-    -- find current tree-sitter node at the current cursor
-    local current_node = ts_utils.get_node_at_cursor()
-    if not current_node then
-        return nil
-    end
-
-    local context = nil
-
-    while current_node do
-
-        local cur_node_type = current_node:type()
-        local context_text = nil
-
-        -- Check to see if we should include this node
-        if _config.include_class then
-            if cur_node_type:find("class") ~= nil then
-                context_text = look_for_name(current_node)
-            end
-        end
-        if _config.include_function then
-            if cur_node_type:find("function") ~= nil then
-                context_text = look_for_name(current_node)
-            end
-        end
-        if _config.include_method then
-            if cur_node_type:find("method") ~= nil then
-                context_text = look_for_name(current_node)
-            end
-        end
-        if _config.include_if then
-            if cur_node_type:find("if") ~= nil then
-                context_text = "if"
-            end
-        end
-        if _config.include_for then
-            if cur_node_type:find("for") ~= nil then
-                context_text = "for"
-            end
-        end
-
-        if context_text ~= nil then
-            if context == nil then
-                context = context_text
+function merge(t1, t2)
+    for key, value in pairs(t2) do --actualcode
+        if type(value) == type({}) then
+            if t1[key] == nil then
+                t1[key] = value
             else
-                context = context_text .. _config.separator_char .. context
+                merge(t1[key], value)
             end
+        else
+            t1[key] = value
         end
-
-        -- goto next parent
-        current_node = current_node:parent()
     end
+end
 
-    if context == nil then
-        print("Could not find context")
-        return
-    end
+-- config[lang] = {
+    -- query = string
+-- }
+M.setup = function(opts)
+    merge(_config, opts or {})
+end
 
-    buf_filetype = vim.bo.filetype
-    if buf_filetype == "lua" then
-        context = "print(\"" .. context .. "\")"
-    elseif  buf_filetype == "python" then
-        context = "print(\"" .. context .. "\")"
-    elseif buf_filetype:find("typescript") then
-        context = "console.log(\"" .. context .. "\")"
-    else
-        print("Unsupported filetype: " .. buf_filetype)
-        return
+M.create_statement = function()
+
+    local ft = vim.api.nvim_buf_get_option(bufnr, 'ft')
+
+    -- Check to see if tree-sitter is setup
+    local lang = _config[ft]
+    if not lang then
+        print("contextprint doesn't support this filetype", ft)
+        return nil
     end
 
     local row, col = unpack(vim.api.nvim_win_get_cursor(0))
-    vim.api.nvim_buf_set_lines(0, row, row, false, {context})
+
+    -- TODO: Uses 0 for current buffer.  Should we fix this?
+    print("defaults", _config[ft].type_defaults)
+    local nodes = Nodes.get_nodes(lang.query, ft, _config[ft].type_defaults or {})
+
+    if nodes == nil then
+        print("Unable to find any nodes.  Is your query correct?")
+        return nil
+    end
+
+    nodes = Nodes.sort_nodes(Nodes.intersect_nodes(nodes, row, col))
+
+    local path = ""
+    local first = true
+    local sep = (_config[ft].separator or _config.separator)
+    for idx = 1, #nodes do
+        if first then
+            path = nodes[idx].name
+            first = false
+        else
+            path = path .. sep .. nodes[idx].name
+        end
+    end
+
+    return lang.log(path), row, col
+end
+
+M.add_statement = function()
+
+    local ft = vim.api.nvim_buf_get_option(bufnr, 'ft')
+
+    -- Check to see if tree-sitter is setup
+    if not parsers.has_parser() then
+        print("tree sitter is not enabled for filetype", ft)
+        return nil
+    end
+
+    local print_statement, row, col = M.create_statement()
+
+    if print_statement == nil then
+        print("Unable to find anything with your query.  Are you sure it is correct?")
+    end
+
+    vim.api.nvim_buf_set_lines(0, row, row, false, {print_statement})
     vim.api.nvim_feedkeys('j', 'n', false)
     vim.api.nvim_feedkeys('=', 'n', false)
     vim.api.nvim_feedkeys('=', 'n', false)
-    vim.api.nvim_feedkeys('k', 'n', false)
+    vim.api.nvim_feedkeys('$', 'n', false)
 
 end
 
