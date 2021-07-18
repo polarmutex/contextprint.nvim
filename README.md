@@ -25,7 +25,7 @@ Plug 'bryall/contextprint.nvim'
 
 Call the below statment to change the defaults
 
-```
+```lua
     require('contextprint').setup({
         separator_char = "#",  // Global
         <filetype> = {
@@ -39,7 +39,7 @@ Call the below statment to change the defaults
 
 # to add context print statement
 
-```
+```lua
     require('contextprint').add_statement()
 ```
 
